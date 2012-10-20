@@ -1,0 +1,8 @@
+Notes on how I setup the i2c device on the offical Raspian distro
+
+1. remove i2c-bcm2708 from the modprobe blacklist in
+   /etc/modprobe.d/raspi-blacklist.conf
+
+2. added i2c-dev to /etc/modules so that it loads the i2c driver on boot
+
+3. added 'sudo chmod a+rw /dev/i2c*' to .bashrc to allow read/write by default
