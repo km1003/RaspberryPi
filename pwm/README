@@ -1,0 +1,4 @@
+PWM control for the Raspberry Pi
+
+Credit for the WiringPi library goes to Gordon at
+https://github.com/WiringPi/WiringPi
