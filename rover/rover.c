@@ -11,14 +11,15 @@ int main(int argc, char** argv)
   init();
 
   // drive in a ccw square
-  for(i = 0; i < 5; i++)
+  for(i = 0; i < 10; i++)
   {
     driveForward(speed);
     delay(1000);
     turnLeft(speed);
-    delay(250);
+    delay(300);
   }
-
+  
+  stop();
   return 0;
 }
 
@@ -33,6 +34,8 @@ void init()
   pinMode(M1POL, OUTPUT);	// enable M1 polarity control
   pinMode(M2POL, OUTPUT);	// enable M2 polarity control
   digitalWrite(SHIFTEN, 1);	// enable level shifter
+  pwmWrite(PWM, 0);
+  delay(50);
 }
 
 void turnLeft(int speed)
