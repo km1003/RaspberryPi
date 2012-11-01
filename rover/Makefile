@@ -2,9 +2,10 @@ DEBUG	= -O3
 CC	= gcc
 INCLUDE	= -I/usr/local/include
 CFLAGS	= $(DEBUG) -Wall $(INCLUDE) -Winline -pipe
+OTHERS	= compass.c serial.c time.c
 
 LDFLAGS	= -L/usr/local/lib
-LIBS    = -lwiringPi
+LIBS    = -lwiringPi -lm
 
 
 SRC	=	rover.c
@@ -15,7 +16,7 @@ all:		rover
 
 rover:	rover.o
 	@echo [link]
-	$(CC) -o $@ rover.o $(LDFLAGS) $(LIBS)
+	$(CC) -o $@ rover.o $(OTHERS) $(LDFLAGS) $(LIBS)
 
 .c.o:
 	@echo [CC] $<

@@ -1,0 +1,2 @@
+
+float getHeading(void);

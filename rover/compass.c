@@ -50,8 +50,9 @@ float getHeading()
   if(h < 0)
     h += 2*PI;
   float heading = h * 180/M_PI;
+  return heading;
 }
-
+/*
 int main(int argc, char **argv)
 {
   int address = 0x1E;
@@ -113,3 +114,4 @@ int main(int argc, char **argv)
 
   return 0;
 }
+*/
