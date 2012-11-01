@@ -44,7 +44,7 @@ int main(int argc, char** argv)
   char c = 0;
   unsigned char sendbuf[4];
   int count, i, sum, uart;
-  uint64_t pstart=0, pstop=0, sstart=0, sstop=0;
+  uint64_t pstart=0, pstop=0, sTXuSecs=0;
 
   if(wiringPiSetupGpio() == -1)
   {
@@ -56,6 +56,10 @@ int main(int argc, char** argv)
   pinMode(4, OUTPUT);
   digitalWrite(4, 1);
 
+  // Init rangefinder inputs
+  pinMode(22, INPUT); // PWM
+  pinMode(27, INPUT); // COMP_TRIG
+
   //pinMode(15, INPUT);
   //pullUpDnControl (15, PUD_UP);
 
@@ -65,37 +69,28 @@ int main(int argc, char** argv)
     printf("failed to init uart\n");
     exit(1);
   }
-  
-  //pinMode(15, INPUT);
-  //pullUpDnControl (15, PUD_UP);
-  //pullUpDnControl (14, PUD_UP);
 
-  printf("uart fd: %d\n", uart);
-
-  // Set command to read the temp from the URM37 rangefinder
-  sendbuf[0] = 0x22;
-  sendbuf[1] = 0x00;
-  sendbuf[2] = 0x00;
-  sum = sendbuf[0] + sendbuf[1] + sendbuf[2]; // calculate checksum
-  sendbuf[3] = sum & 0xff;
+  // command to send to the rangefinder
+  sendbuf[0] = 0x44;
+  sendbuf[1] = 0x02;
+  sendbuf[2] = 0xaa;
+  sendbuf[3] = (sendbuf[0] + sendbuf[1] + sendbuf[2]) & 0xff; // checksum
   delay(1000);
 
   while(1)
   {
     // send serial every second
-    if(sstop == 0 || ((getuSecs() - sstart) > 1000000))
+    if((getuSecs() - sTXuSecs) > 1000000)
     {
-      sstart = getuSecs();
-      sstop = getuSecs();
+      sTXuSecs = getuSecs();
       writeSerial(sendbuf, 4, uart);
-      rxChecked = FALSE;
+      rxChecked = FALSE; // flag need to check RX
     }
 
-    // check for serial rx 100 msecs later
-    if((getuSecs() - sstart) > 100000 && !rxChecked)
+    // check for receive 100 msecs after send
+    if((getuSecs() - sTXuSecs) > 100000 && !rxChecked)
     {
-      rxChecked = TRUE;
-      sstop = getuSecs();
+      rxChecked = TRUE; // only check RX once
       sum = 0;
       count = 0;
       printf("[%llu] recieved:", getuSecs());
@@ -107,11 +102,20 @@ int main(int argc, char** argv)
           sum += c;
         printf("[%x]", c);
       }
-      printf(" sum=%x, count=%d", sum&0xff, count);
-      if(sum == c && count == 4) printf(" MATCH!!");
+      printf(" sum=%x, count=%d", (sum & 0xff), count);
+      if((sum & 0xff) == c && count == 4) printf(" MATCH!!");
       printf("\n");
-      //serialFlush(uart);
+      serialFlush(uart);
     }
+
+    if(rxChecked)
+    {
+      while(1)
+      {
+        printf("[%llu]pwm:%d\n", getuSecs(), digitalRead(22));
+      }
+    }
+
   }
 
   serialFlush(uart);
