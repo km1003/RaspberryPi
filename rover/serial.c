@@ -9,25 +9,10 @@
 void writeSerial(unsigned char* buf, int len, int uart)
 {
   int i;
-#ifdef DEBUG
-  printf("writing %d bytes to serial: ", len);
-#endif
   for(i = 0; i < len; i++)
-  {
-    serialPutchar(uart, (buf[i])&0xff);
-#ifdef DEBUG
-    printf("[%x]", (buf[i])&0xff);
-#endif
-  }
-#ifdef DEBUG
-  printf("\n");
-#endif
+    serialPutchar(uart, buf[i]);
 }
 
-/*
- * Reads up to len from serial into buf.
- * Returns: the number of bytes read.
- */
 int readSerial(unsigned char* buf, int len, int uart)
 {
   int i;

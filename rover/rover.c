@@ -4,15 +4,12 @@
 #include <wiringPi.h>
 
 #include "compass.h"
+#include "rangefinder.h"
 #include "serial.h"
-#include "time.h"
 
 // Defines
 #define FALSE   (0)
 #define TRUE    (1)
-
-// RPi board revision 2
-#define REV2    TRUE
 
 // Broadcom GPIO map
 #define SHIFTEN (4)
@@ -20,13 +17,7 @@
 #define RXD     (15)
 #define M1POL   (17)
 #define PWM     (18)
-#if REV2
 #define M2POL   (27)
-#else
-#define M2POL   (21)
-#endif
-#define PWMRNG  (22)
-#define COMPTRG (23)
 
 // Type definitions
 typedef char    bool;
@@ -44,6 +35,11 @@ int main(int argc, char** argv)
   int i;
   init();
 
+  while(1)
+  {
+    printf("range: %dcm\n", getRange());
+    delay(100);
+  }
 
 /* TODO: work on sensor code
   // drive in a ccw square
@@ -74,8 +70,9 @@ void init()
   pinMode(M1POL, OUTPUT);	// enable M1 polarity control
   pinMode(M2POL, OUTPUT);	// enable M2 polarity control
   digitalWrite(SHIFTEN, 1);	// enable level shifter
-  pwmWrite(PWM, 0);
-  delay(50);
+  pwmWrite(PWM, 0);		// zero pwm output
+  if(initRangefinder() < 0)
+    printf("failed to init rangefinder\n");
 }
 
 void turnLeft(int speed)

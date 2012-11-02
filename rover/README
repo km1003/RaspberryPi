@@ -1,3 +1,8 @@
-Raspberry Pi Rover code
+Raspberry Pi Rover
 
-Credit to the community for the GPIO code
+My Raspberry Pi rover features a motor controller, an electronic compass,
+and an ultrasonic rangefinder.  The code I use to control these devices
+can be found here.
+
+Credit for wiringPi library goes to Gordon at:
+https://projects.drogon.net/raspberry-pi/wiringpi/
