@@ -10,16 +10,18 @@
 #include "time.h"
 
 // Defines
-#define FALSE   (0)
-#define TRUE    (1)
+#define FALSE   	(0)
+#define TRUE    	(1)
 
 // Broadcom GPIO map
-#define SHIFTEN (4)
-#define TXD     (14)
-#define RXD     (15)
-#define M1POL   (17)
-#define PWM     (18)
-#define M2POL   (27)
+#define SHIFTEN 	(4)
+#define TXD     	(14)
+#define RXD     	(15)
+#define M1POL   	(17)
+#define PWM     	(18)
+#define PWMIN   	(22)
+#define COMPTRIG	(23)
+#define M2POL   	(27)
 
 // Enumerations
 typedef enum
@@ -39,7 +41,7 @@ typedef struct
   Direction	direction;
   Direction	lastTurn;
   int		speed;
-  int		range;
+  bool		proximityAlert;
 } Rover;
 
 // Function prototypes
@@ -56,6 +58,9 @@ Rover		rover;
 int main(int argc, char** argv)
 {
   init();
+/*
+//setRange(25); // WARNING: This writes to the EEPROM
+  // Routine to test the rangefinder function
   int minR=0, maxR=0, minT=0, maxT=0, dif, range;
   uint64_t start, end;
   while(1)
@@ -68,10 +73,12 @@ int main(int argc, char** argv)
     if(range > maxR) maxR=range;
     if(dif < minT || minT==0) minT=dif;
     if(dif > maxT) maxT=dif;
+    printf("comptrig pin: %d\n", digitalRead(COMPTRIG));
     printf("range: %dcm min: %dcm max: %dcm\n", range, minR, maxR);
     printf("elapsed: %dus min: %dus max: %dus\n", dif, minT, maxT);
     delay(100);
   }
+*/
 /* 
   // drive in a ccw square
   for(i = 0; i < 10; i++)
@@ -83,12 +90,15 @@ int main(int argc, char** argv)
   }
   stop();  
 */
-/*
-  // Main Loop
+
+  // Main Loop - Rover
   while(1)
   {
-    // get range infront of the rover
-    rover.range = getRange();
+    // check for a proximity alert from the rangefinder
+    if(digitalRead(COMPTRIG) == 1)
+      rover.proximityAlert = FALSE;
+    else
+      rover.proximityAlert = TRUE;
 
     // process next move
     processMove();
@@ -97,64 +107,62 @@ int main(int argc, char** argv)
     toString();
 
     // sleep thread a while
-    delay(50);
+    delay(100);
   }
-*/
   return 0;
+
 }
 
 // Process the next move for the rover to make
 void processMove()
 {
-  // an is obsticle near
-  if(rover.range < 25)
+  // proximity alert from the rangefinder
+  if(rover.proximityAlert)
   {
-    // rover is driving, stop to avoid a collision
-    if(rover.isDriving && rover.direction == FORWARD)
+    // the rover is driving, forward or turning?
+    if(rover.isDriving)
     {
-      stop();
-      printf("\nobsticle near, stopping\n");
-    }
-    // rover is stopped, rotate right or left to look for a clear path
-    if(!rover.isDriving)
-    {
-      // enough room to rotate
-      if(rover.range > 15)
+      if(rover.direction == FORWARD)
       {
-        if(rover.lastTurn == LEFT) drive(RIGHT, rover.speed);
-        else if(rover.lastTurn == RIGHT) drive(LEFT, rover.speed);
-        else drive(LEFT, rover.speed);
-        printf("\nrotating to a new heading\n");
+        stop();
+        printf("\nproximity alert! stopping\n");
       }
-      // not enough room to rotate so reverse
+    }
+    // the rover is stopped, look for a clear heading
+    else
+    {
+      // decide which way to rotate
+      if(rover.lastTurn == LEFT)
+      {
+        drive(RIGHT, rover.speed);
+      }
       else
       {
-        drive(REVERSE, rover.speed);
-        printf("\nobsticle very close, reversing\n");
+        drive(LEFT, rover.speed);
       }
     }
   }
-  
-  // resume driving when obsticle is clear
-  if(rover.range > 35)
+  // no proximity alert from the rangefinder
+  else
   {
-    if(!rover.isDriving)
-    {
-      drive(FORWARD, rover.speed);
-      printf("\nresume driving forward\n");
-    }
     if(rover.isDriving)
     {
-      if(rover.direction == RIGHT || rover.direction == LEFT)
+      // is rover roving or searching for a clear heading?
+      if(rover.direction == LEFT || rover.direction == RIGHT)
       {
         stop();
         printf("\nfound a clear heading\n");
       }
-      if(rover.direction == REVERSE)
+      else
       {
-        stop();
-        printf("\nreversed to a safe distance\n");
+        // rover is roving forward, do nothing
       }
+    }
+    // rover is stopped, resume roving
+    else
+    {
+      drive(FORWARD, rover.speed);
+      printf("\nproximity alert clear, driving forward\n");
     }
   }
 }
@@ -164,21 +172,20 @@ void toString()
 {
   // print status to stdout
   char* mving=(char*)"stopped";
-  char* dir=(char*)" ";
+  char* dir=(char*)"unknown";
   if(rover.isDriving)
-  {
     mving = "driving";
-    if(rover.direction==FORWARD)
-      dir = "forward";
-    if(rover.direction==REVERSE)
-      dir = "reverse";
-    if(rover.direction==LEFT)
-      dir = "left";
-    if(rover.direction==RIGHT)
-      dir = "right";
-  }
-  printf("\r%s %s at %d, range: %d                               ",
-          mving, dir, rover.speed, rover.range);
+  if(rover.direction==FORWARD)
+    dir = "forward";
+  if(rover.direction==REVERSE)
+    dir = "reverse";
+  if(rover.direction==LEFT)
+    dir = "left";
+  if(rover.direction==RIGHT)
+    dir = "right";
+  printf("\r%s direction:%s speed: %d, proximity alert: %d      ",
+          mving, dir, rover.speed, rover.proximityAlert);
+  fflush(stdout);
 }
 
 void init()
@@ -195,7 +202,6 @@ void init()
   pinMode(M1POL, OUTPUT);	// enable M1 polarity control
   pinMode(M2POL, OUTPUT);	// enable M2 polarity control
   digitalWrite(SHIFTEN, 1);	// enable level shifter
-  pwmWrite(PWM, 0);		// zero pwm output
   if(initRangefinder() < 0)
     printf("failed to init rangefinder\n");
   stop();
@@ -203,7 +209,7 @@ void init()
   rover.direction = NONE;
   rover.lastTurn = NONE;
   rover.speed = 512;
-  rover.range = 0;
+  rover.proximityAlert = TRUE;
 }
 
 void drive(Direction direction, int speed)
