@@ -6,51 +6,57 @@
 #include <sys/ioctl.h>
 #include <unistd.h>
 
+#define TRUE		(1)
+#define FALSE		(0)
+typedef char		bool;
+
+bool initialized 	= FALSE;
+char buf[] = {0x03C, 0x02, 0x00, 0x03, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
+char *fileName 		= "/dev/i2c-1"; // I2C device
+int address 		= 0x1E; // HMC5883L compass I2C address
+int i2cfd 		= -1; // I2C linux file descriptor;
+const float PI 		= 3.1415927; 
+
+// Returns the heading from the compass
 float getHeading()
 {
-  int address = 0x1E;
-  int fd;
-  char buf[10];
-  char* fileName = "/dev/i2c-1";
-  const float PI = 3.1415927;
-  if((fd = open(fileName, O_RDWR)) < 0){
-    printf("error opening %s\n", fileName);
-    return -1;
+  // the i2c file descriptor hasn't been initialized
+  if(i2cfd < 0)
+  {
+    if((i2cfd = open(fileName, O_RDWR)) < 0){
+      printf("error opening %s\n", fileName);
+      return -1;
+    }
   }
-  if(ioctl(fd, I2C_SLAVE, address) < 0){
+  if(ioctl(i2cfd, I2C_SLAVE, address) < 0){
     printf("error getting bus access to talk to slave\n");
     return -1;
   }
-  buf[0] = 0x3C; // document suggested init code
-  buf[1] = 0x02; //
-  buf[2] = 0x00; //
-  buf[3] = 0x03; // start of read registers
-  int numWrote;
-  if((numWrote = write(fd, &buf[1], 2)) != 2){
-    printf("error writing init to compass: %d\n", numWrote);
-    return -1;
+  // first time initialization of the compass mode is done automaticallly
+  if(!initialized)
+  {
+    if(write(i2cfd, &buf[1], 2) != 2){
+      printf("error writing init to compass\n");
+      return -1;
+    }
+    initialized = TRUE;
   }
-  int numRead;
-  if(write(fd, &buf[3], 1) != 1){
+  // select register 3 to read from
+  if(write(i2cfd, &buf[3], 1) != 1){
     printf("error writing register select to compass\n");
     return -1;
-  }
-  numRead = read(fd, &buf[4], 6);
-  //printf("read %d bytes from compass\n", numRead);
-  //printf("%d.%d.%d.%d.%d.%d\n",
-  //  buf[4], buf[5], buf[6], buf[7], buf[8], buf[9]);
-  int x = (buf[4] ) | (buf[5] << 8);
-  int z = (buf[6] ) | (buf[7] << 8);
-  int y = (buf[8] ) | (buf[9] << 8);
-  printf("X: %f, Y: %f, Z: %f\n",
-    (float)x/0xffff, (float)y/0xffff, (float)z/0xffff);
-  float X = (float)x/0xffff;
-  float Y = (float)y/0xffff;
-  float h = atan2(Y, X);
-
-  // TODO: compensate for the Z axis and normalize
+  }  
+  if(read(i2cfd, &buf[4], 6) != 6)
+    printf("\nFailed to read 6 bytes from compass\n");
+  short x = (buf[4] << 8) | buf[5];
+  short z = (buf[6] << 8) | buf[7];
+  short y = (buf[8] << 8) | buf[9];
+  float h = atan2((float)y, (float)x); // heading in radians
   if(h < 0)
     h += 2*PI;
   float heading = h * 180/M_PI;
+//// Debugging printf - delete this
+//printf("x:%d, y:%d, z:%d, h:%f, heading:%f\n",
+//      x, y, z, h, heading);
   return heading;
 }

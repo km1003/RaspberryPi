@@ -58,6 +58,25 @@ Rover		rover;
 int main(int argc, char** argv)
 {
   init();
+
+  // compass test code
+  float min=999.9, max=0;
+  int elapsed, mint=0x7fffffff, maxt=0;
+  uint64_t start, end;
+  while(1)
+  {
+    start = getuSecs();
+    float heading = getHeading();
+    end = getuSecs();
+    if(heading > max) max = heading;
+    if(heading < min) min = heading;
+    elapsed = (int)(end-start);
+    if(elapsed > maxt) maxt = elapsed;
+    if(elapsed < mint) mint = elapsed;
+    printf("heading: %3.2f,\tmin:%3.2f,\tmax:%3.2f\n", heading, min, max);
+    printf("elapsed: %4dus, \tmin:%dus,\tmax:%dus\n", elapsed, mint, maxt);
+    delay(100);
+  }
 /*
 //setRange(25); // WARNING: This writes to the EEPROM
   // Routine to test the rangefinder function
@@ -90,7 +109,7 @@ int main(int argc, char** argv)
   }
   stop();  
 */
-
+/*
   // Main Loop - Rover
   while(1)
   {
@@ -110,7 +129,7 @@ int main(int argc, char** argv)
     delay(100);
   }
   return 0;
-
+*/
 }
 
 // Process the next move for the rover to make
@@ -208,7 +227,7 @@ void init()
   rover.isDriving = FALSE;
   rover.direction = NONE;
   rover.lastTurn = NONE;
-  rover.speed = 512;
+  rover.speed = 1024;
   rover.proximityAlert = TRUE;
 }
 
