@@ -62,6 +62,7 @@ int main(int argc, char** argv)
 
   //pinMode(15, INPUT);
   //pullUpDnControl (15, PUD_UP);
+  pullUpDnControl(14, PUD_OFF);
 
   // Init the uart at 9600 baud
   if((uart = serialOpen("/dev/ttyAMA0", 9600)) <= 0)
@@ -71,7 +72,7 @@ int main(int argc, char** argv)
   }
 
   // command to send to the rangefinder
-  sendbuf[0] = 0x44;
+  sendbuf[0] = 0x11;//0x44;
   sendbuf[1] = 0x02;
   sendbuf[2] = 0xaa;
   sendbuf[3] = (sendbuf[0] + sendbuf[1] + sendbuf[2]) & 0xff; // checksum
@@ -107,7 +108,7 @@ int main(int argc, char** argv)
       printf("\n");
       serialFlush(uart);
     }
-
+/*
     if(rxChecked)
     {
       while(1)
@@ -115,7 +116,7 @@ int main(int argc, char** argv)
         printf("[%llu]pwm:%d\n", getuSecs(), digitalRead(22));
       }
     }
-
+*/
   }
 
   serialFlush(uart);
