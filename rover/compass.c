@@ -6,6 +6,7 @@
 #include <sys/ioctl.h>
 #include <unistd.h>
 
+#define PI 		3.1415926535897932384626433832795
 #define TRUE		(1)
 #define FALSE		(0)
 typedef char		bool;
@@ -15,7 +16,6 @@ char buf[] = {0x03C, 0x02, 0x00, 0x03, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
 char *fileName 		= "/dev/i2c-1"; // I2C device
 int address 		= 0x1E; // HMC5883L compass I2C address
 int i2cfd 		= -1; // I2C linux file descriptor;
-const float PI 		= 3.1415927; 
 
 // Returns the heading from the compass
 float getHeading()
@@ -54,9 +54,6 @@ float getHeading()
   float h = atan2((float)y, (float)x); // heading in radians
   if(h < 0)
     h += 2*PI;
-  float heading = h * 180/M_PI;
-//// Debugging printf - delete this
-//printf("x:%d, y:%d, z:%d, h:%f, heading:%f\n",
-//      x, y, z, h, heading);
+  float heading = h * 180/PI;
   return heading;
 }

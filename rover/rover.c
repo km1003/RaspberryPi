@@ -12,16 +12,16 @@
 // Defines
 #define FALSE   	(0)
 #define TRUE    	(1)
+#define PROX_ALERT	(25)
 
 // Broadcom GPIO map
-#define SHIFTEN 	(4)
 #define TXD     	(14)
 #define RXD     	(15)
-#define M1POL   	(17)
 #define PWM     	(18)
-#define PWMIN   	(22)
-#define COMPTRIG	(23)
-#define M2POL   	(27)
+#define COMPTRIG	(4)
+#define M1POL		(27)
+#define M2POL		(17)
+
 
 // Enumerations
 typedef enum
@@ -40,8 +40,10 @@ typedef struct
   bool		isDriving;
   Direction	direction;
   Direction	lastTurn;
+  int		range;
   int		speed;
   bool		proximityAlert;
+  short		heading;
 } Rover;
 
 // Function prototypes
@@ -51,73 +53,35 @@ void init(void);
 void drive(Direction direction, int speed);
 void stop(void);
 void signalHandler(int sig);
+void testRange(void);
+void testCompass(void);
 
 // Globals
 Rover		rover;
+int 		minR=0, maxR=0, mint=0, maxt=0, minT=0, maxT=0, dif, range;
+float		minF=0, maxF=0;
+uint64_t 	start, end;
 	
 int main(int argc, char** argv)
 {
   init();
 
-  // compass test code
-  float min=999.9, max=0;
-  int elapsed, mint=0x7fffffff, maxt=0;
-  uint64_t start, end;
   while(1)
   {
-    start = getuSecs();
-    float heading = getHeading();
-    end = getuSecs();
-    if(heading > max) max = heading;
-    if(heading < min) min = heading;
-    elapsed = (int)(end-start);
-    if(elapsed > maxt) maxt = elapsed;
-    if(elapsed < mint) mint = elapsed;
-    printf("heading: %3.2f,\tmin:%3.2f,\tmax:%3.2f\n", heading, min, max);
-    printf("elapsed: %4dus, \tmin:%dus,\tmax:%dus\n", elapsed, mint, maxt);
-    delay(100);
+    testRange();
+    testCompass();
+    delay(25);
   }
-/*
-//setRange(25); // WARNING: This writes to the EEPROM
-  // Routine to test the rangefinder function
-  int minR=0, maxR=0, minT=0, maxT=0, dif, range;
-  uint64_t start, end;
-  while(1)
-  {
-    start = getuSecs();
-    range = getRange();
-    end = getuSecs();
-    dif = (int)(end-start);
-    if(range < minR || minR==0) minR=range;
-    if(range > maxR) maxR=range;
-    if(dif < minT || minT==0) minT=dif;
-    if(dif > maxT) maxT=dif;
-    printf("comptrig pin: %d\n", digitalRead(COMPTRIG));
-    printf("range: %dcm min: %dcm max: %dcm\n", range, minR, maxR);
-    printf("elapsed: %dus min: %dus max: %dus\n", dif, minT, maxT);
-    delay(100);
-  }
-*/
-/* 
-  // drive in a ccw square
-  for(i = 0; i < 10; i++)
-  {
-    driveForward(512);
-    delay(1000);
-    turnLeft(512);
-    delay(300);
-  }
-  stop();  
-*/
+
 /*
   // Main Loop - Rover
   while(1)
   {
-    // check for a proximity alert from the rangefinder
-    if(digitalRead(COMPTRIG) == 1)
-      rover.proximityAlert = FALSE;
-    else
-      rover.proximityAlert = TRUE;
+    // get current heading
+    rover.heading = (short)getHeading();
+
+    while((rover.range = getRange()) < 0);
+    rover.proximityAlert = rover.range <= PROX_ALERT;
 
     // process next move
     processMove();
@@ -126,7 +90,7 @@ int main(int argc, char** argv)
     toString();
 
     // sleep thread a while
-    delay(100);
+    delay(25);
   }
   return 0;
 */
@@ -202,8 +166,8 @@ void toString()
     dir = "left";
   if(rover.direction==RIGHT)
     dir = "right";
-  printf("\r%s direction:%s speed: %d, proximity alert: %d      ",
-          mving, dir, rover.speed, rover.proximityAlert);
+  printf("\r%s: %s, speed: %d, proximity alert: %d, heading: %d       ",
+          mving, dir, rover.speed, rover.proximityAlert, rover.heading);
   fflush(stdout);
 }
 
@@ -217,18 +181,47 @@ void init()
     exit (1) ;
 
   pinMode(PWM, PWM_OUTPUT);	// enable pwm output
-  pinMode(SHIFTEN, OUTPUT);	// enable level shifter control
   pinMode(M1POL, OUTPUT);	// enable M1 polarity control
   pinMode(M2POL, OUTPUT);	// enable M2 polarity control
-  digitalWrite(SHIFTEN, 1);	// enable level shifter
+  stop();
   if(initRangefinder() < 0)
     printf("failed to init rangefinder\n");
-  stop();
   rover.isDriving = FALSE;
   rover.direction = NONE;
   rover.lastTurn = NONE;
   rover.speed = 1024;
+  rover.range = -1;
   rover.proximityAlert = TRUE;
+  rover.heading = -1;
+}
+
+void testRange()
+{
+  start = getuSecs();
+  range = getRange();
+  end = getuSecs();
+  dif = (int)(end-start);
+  if(range < minR || minR==0) minR=range;
+  if(range > maxR) maxR=range;
+  if(dif < minT || minT==0) minT=dif;
+  if(dif > maxT) maxT=dif;
+  //printf("comptrig pin: %d\n", digitalRead(COMPTRIG));
+  printf("range: %dcm min: %dcm max: %dcm\n", range, minR, maxR);
+  printf("elapsed: %dus min: %dus max: %dus\n", dif, minT, maxT);
+}
+
+void testCompass()
+{
+  start = getuSecs();
+  float heading = getHeading();
+  end = getuSecs();
+  if(heading > maxF) maxF = heading;
+  if(heading < minF || minF == 0) minF = heading;
+  dif = (int)(end-start);
+  if(dif > maxt) maxt = dif;
+  if(dif < mint || mint == 0) mint = dif;
+  printf("heading: %3.2f,\tmin:%3.2f,\tmax:%3.2f\n", heading, minF, maxF);
+  printf("elapsed: %4dus, \tmin:%dus,\tmax:%dus\n", dif, mint, maxt);
 }
 
 void drive(Direction direction, int speed)
